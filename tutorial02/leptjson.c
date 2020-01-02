@@ -1,6 +1,8 @@
 #include "leptjson.h"
 #include <assert.h>  /* assert() */
 #include <stdlib.h>  /* NULL, strtod() */
+#include <ctype.h>   /* isdigit() */
+#include <strings.h> /* index() */
 
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
 
@@ -27,7 +29,27 @@ static int lept_parse_literal(lept_context* c, lept_value* v, const char* litera
 
 static int lept_parse_number(lept_context* c, lept_value* v) {
     char* end;
-    /* \TODO validate number */
+    const char* found;
+    /* validate number */
+    /* valid first character */
+    if (!(isdigit(*c->json) || (*c->json == '-')))
+        return LEPT_PARSE_INVALID_VALUE;
+
+    /* after '0' should be nothing or '.' */
+    if (*c->json == '0') {
+        char next_char = *(c->json + 1);
+        if (!(next_char == '\0' || next_char == '.'))
+            return LEPT_PARSE_ROOT_NOT_SINGULAR;
+    }
+
+   /* case for "1234." : at least one digit after '.' */
+    found = index(c->json, '.');
+    if (found) {
+        if (!isdigit(*(found + 1))) {
+            return LEPT_PARSE_INVALID_VALUE;
+        }
+    }
+    
     v->n = strtod(c->json, &end);
     if (c->json == end)
         return LEPT_PARSE_INVALID_VALUE;

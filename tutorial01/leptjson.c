@@ -64,8 +64,7 @@ int lept_parse(lept_value* v, const char* json) {
     c.json = json;
     v->type = LEPT_NULL;
     lept_parse_whitespace(&c);
-    return_value = lept_parse_value(&c, v);
-    if (return_value != LEPT_PARSE_OK) {
+    if ((return_value = lept_parse_value(&c, v)) != LEPT_PARSE_OK) {
         return return_value;
     }
     lept_parse_whitespace(&c);

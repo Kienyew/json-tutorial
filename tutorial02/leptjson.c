@@ -3,6 +3,8 @@
 #include <stdlib.h>  /* NULL, strtod() */
 #include <ctype.h>   /* isdigit() */
 #include <strings.h> /* index() */
+#include <errno.h>   /* ERANGE */
+#include <math.h>    /* HUGE_VAL */
 
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
 
@@ -50,9 +52,14 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
         }
     }
     
+    /* check overflow and underflow */
     v->n = strtod(c->json, &end);
     if (c->json == end)
         return LEPT_PARSE_INVALID_VALUE;
+
+    if ((v->n == HUGE_VAL || v->n == -HUGE_VAL) && errno == ERANGE)
+        return LEPT_PARSE_NUMBER_TOO_BIG;     
+    
     c->json = end;
     v->type = LEPT_NUMBER;
     return LEPT_PARSE_OK;

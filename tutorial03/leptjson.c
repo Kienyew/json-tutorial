@@ -13,6 +13,8 @@
 #define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
 #define ISDIGIT1TO9(ch)     ((ch) >= '1' && (ch) <= '9')
 #define PUTC(c, ch)         do { *(char*)lept_context_push(c, sizeof(char)) = (ch); } while(0)
+#define VALID_UNESCAPED_CHAR(c) ((c) == '\x20' || (c) == '\x21' || ((c) >= '\x23' && (c) <= '\x5b') || (c) >= '\x5d')
+
 
 typedef struct {
     const char* json;
@@ -88,6 +90,17 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
 
 static int lept_parse_string(lept_context* c, lept_value* v) {
     size_t head = c->top, len;
+    char buffer[1024];
+    int buffer_size = 0;
+    #define PUTC_BUFFERED(ch) do {\
+            if (buffer_size >= sizeof(buffer)) {\
+                buffer_size -= sizeof(buffer);\
+                memcpy(lept_context_push(c, sizeof(buffer)), buffer, sizeof(buffer));\
+            } \
+            buffer[buffer_size] = (ch);\
+            buffer_size += sizeof(char);\
+        } while (0)
+
     const char* p;
     EXPECT(c, '\"');
     p = c->json;
@@ -95,6 +108,8 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
         char ch = *p++;
         switch (ch) {
             case '\"':
+                if (buffer_size > 0)
+                    memcpy(lept_context_push(c, buffer_size), buffer, buffer_size);
                 len = c->top - head;
                 lept_set_string(v, (const char*)lept_context_pop(c, len), len);
                 c->json = p;
@@ -102,8 +117,39 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
             case '\0':
                 c->top = head;
                 return LEPT_PARSE_MISS_QUOTATION_MARK;
+            case '\\':
+                ch = *p++;
+                switch (ch) {
+                    case '"': 
+                    case '\\':
+                    case '/':
+                        PUTC_BUFFERED(ch);
+                        break;
+                    case 'b':
+                        PUTC_BUFFERED('\b');
+                        break;
+                    case 'f':
+                        PUTC_BUFFERED('\f');
+                        break;
+                    case 'n':
+                        PUTC_BUFFERED('\n');
+                        break;
+                    case 'r':
+                        PUTC_BUFFERED('\r');
+                        break;
+                    case 't':
+                        PUTC_BUFFERED('\t');
+                        break;
+                    default:
+                        return LEPT_PARSE_INVALID_STRING_ESCAPE; 
+                        break;
+                }
+                break;
+
             default:
-                PUTC(c, ch);
+                if (!VALID_UNESCAPED_CHAR(ch))
+                    return LEPT_PARSE_INVALID_STRING_CHAR;
+               PUTC_BUFFERED(ch);
         }
     }
 }
@@ -113,9 +159,9 @@ static int lept_parse_value(lept_context* c, lept_value* v) {
         case 't':  return lept_parse_literal(c, v, "true", LEPT_TRUE);
         case 'f':  return lept_parse_literal(c, v, "false", LEPT_FALSE);
         case 'n':  return lept_parse_literal(c, v, "null", LEPT_NULL);
-        default:   return lept_parse_number(c, v);
         case '"':  return lept_parse_string(c, v);
         case '\0': return LEPT_PARSE_EXPECT_VALUE;
+        default:   return lept_parse_number(c, v);
     }
 }
 
@@ -153,12 +199,14 @@ lept_type lept_get_type(const lept_value* v) {
 }
 
 int lept_get_boolean(const lept_value* v) {
-    /* \TODO */
-    return 0;
+    assert(v != NULL && (v->type == LEPT_FALSE || v->type == LEPT_TRUE));
+    return v->type == LEPT_TRUE;
 }
 
 void lept_set_boolean(lept_value* v, int b) {
-    /* \TODO */
+    assert(v != NULL);
+    lept_free(v);
+    v->type = b ? LEPT_TRUE : LEPT_FALSE;
 }
 
 double lept_get_number(const lept_value* v) {
@@ -167,7 +215,10 @@ double lept_get_number(const lept_value* v) {
 }
 
 void lept_set_number(lept_value* v, double n) {
-    /* \TODO */
+    assert(v != NULL);
+    lept_free(v);
+    v->type = LEPT_NUMBER;
+    v->u.n = n;
 }
 
 const char* lept_get_string(const lept_value* v) {

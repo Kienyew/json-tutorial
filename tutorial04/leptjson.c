@@ -192,10 +192,13 @@ static int lept_parse_string(lept_context *c, lept_value *v) {
         /* process if is surrogate pair */
         if (u >= 0xD800 && u <= 0xDBFF) {
             unsigned l; /* low surrogate pair */
-            if (*p++ != '\\' || *p++ !='u' || !(p = lept_parse_hex4(p, &l)) || !(l >= 0xDC00 && l <= 0xDFFF)) {
+            if (*p++ != '\\')
                 STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
-            }
-            u = CODEPOINT(u, l);
+            if (*p++ != 'u')
+                STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+            if (!(p = lept_parse_hex4(p, &l)) || !(l >= 0xDC00 && l <= 0xDFFF))
+                STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+                u = CODEPOINT(u, l);
         }
         lept_encode_utf8(c, u);
         break;

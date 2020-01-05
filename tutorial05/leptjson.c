@@ -183,17 +183,15 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
 
 static int lept_parse_value(lept_context* c, lept_value* v);
 
-#define ARRAY_ERROR(c, head, size, err) {                                           \
+#define ARRAY_ERROR(c, size, err) {                                                 \
         size_t i;                                                                   \
         for(i = 0; i < size; ++i) {                                                 \
             lept_free(lept_context_pop(c, sizeof(lept_value)));                     \
         }                                                                           \
-        c->top = head;                                                              \
         return err;                                                                 \
     }
 
 static int lept_parse_array(lept_context* c, lept_value* v) {
-    size_t head = c->top;
     size_t size = 0;
     int ret;
     EXPECT(c, '[');
@@ -210,7 +208,7 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
         lept_parse_whitespace(c);
         lept_init(&e);
         if ((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK)
-            ARRAY_ERROR(c, head, size, ret);
+            ARRAY_ERROR(c, size, ret);
         memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
         size++;
         lept_parse_whitespace(c);
@@ -224,7 +222,7 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
             memcpy(v->u.a.e = (lept_value*)malloc(size), lept_context_pop(c, size), size);
             return LEPT_PARSE_OK;
         } else {
-            ARRAY_ERROR(c, head, size, LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET);
+            ARRAY_ERROR(c, size, LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET);
         }
     }
 }

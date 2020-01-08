@@ -12,8 +12,8 @@ typedef struct lept_member lept_member;
 
 struct lept_value {
     union {
-        struct { lept_member* m; size_t size, capacity; }o; /* object: members, member count, capacity */
-        struct { lept_value*  e; size_t size, capacity; }a; /* array:  elements, element count, capacity */
+        struct { lept_member* m; size_t size, capacity; } o; /* object: members, member count, capacity */
+        struct { lept_value*  e; size_t size, capacity; } a; /* array:  elements, element count, capacity */
         struct { char* s; size_t len; }s;                   /* string: null-terminated string, string length */
         double n;                                           /* number */
     }u;
